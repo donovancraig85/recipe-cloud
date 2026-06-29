@@ -5,6 +5,17 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 /* ---------------------------------------------------------
+   Firebase v9 Modular Imports
+--------------------------------------------------------- */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { 
+  getStorage, ref, uploadBytesResumable, getDownloadURL 
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+import { 
+  getFirestore, collection, addDoc, getDocs 
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+/* ---------------------------------------------------------
    Firebase Initialization
 --------------------------------------------------------- */
 const firebaseConfig = {
@@ -16,13 +27,9 @@ const firebaseConfig = {
   appId: "YOUR_APP_ID"
 };
 
-firebase.initializeApp(firebaseConfig);
-
-const storage = firebase.storage();
-const db = firebase.firestore();
-
-let lunrIndex = null;
-let recipeDocs = [];
+const app = initializeApp(firebaseConfig);
+const storage = getStorage(app);
+const db = getFirestore(app);
 
 /* ---------------------------------------------------------
    File Type Helpers
@@ -57,7 +64,7 @@ async function extractPagesFromPDF(file) {
 }
 
 /* ---------------------------------------------------------
-   Scanned PDF OCR (Render each page to image)
+   Scanned PDF OCR
 --------------------------------------------------------- */
 async function extractTextFromScannedPDF(file) {
   const arrayBuffer = await file.arrayBuffer();
@@ -85,7 +92,7 @@ async function extractTextFromScannedPDF(file) {
 }
 
 /* ---------------------------------------------------------
-   DOCX Extraction (Mammoth)
+   DOCX Extraction
 --------------------------------------------------------- */
 async function extractTextFromDOCX(file) {
   const arrayBuffer = await file.arrayBuffer();
@@ -123,214 +130,4 @@ function parseRecipeText(fullText) {
   const steps = extractSection(lines, /(directions?|instructions?|method)/i);
 
   const tags = inferTags(fullText);
-  const categories = inferCategories(fullText);
-
-  return { title, ingredients, steps, metadata, tags, categories };
-}
-
-function findLine(lines, regex) {
-  for (const line of lines) {
-    const m = line.match(regex);
-    if (m) return m[2] || m[1];
-  }
-  return null;
-}
-
-function extractSection(lines, headerRegex) {
-  const idx = lines.findIndex(l => headerRegex.test(l));
-  if (idx === -1) return [];
-  const section = [];
-  for (let i = idx + 1; i < lines.length; i++) {
-    if (/^[A-Z][A-Za-z\s]+:$/.test(lines[i])) break;
-    section.push(lines[i]);
-  }
-  return section;
-}
-
-function inferTags(text) {
-  const tags = [];
-  const lower = text.toLowerCase();
-  if (lower.includes("chicken")) tags.push("chicken");
-  if (lower.includes("beef")) tags.push("beef");
-  if (lower.includes("vegan")) tags.push("vegan");
-  if (lower.includes("gluten")) tags.push("gluten-free");
-  return tags;
-}
-
-function inferCategories(text) {
-  const cats = [];
-  const lower = text.toLowerCase();
-  if (lower.includes("cake") || lower.includes("cookie")) cats.push("dessert");
-  if (lower.includes("soup")) cats.push("soup");
-  if (lower.includes("salad")) cats.push("salad");
-  return cats;
-}
-
-/* ---------------------------------------------------------
-   Unified Ingestion Engine
---------------------------------------------------------- */
-async function extractRecipeFromFile(file) {
-  let pages = [];
-  let fullText = "";
-  let sourceType = "";
-
-  if (isDOCX(file)) {
-    sourceType = "docx";
-    fullText = await extractTextFromDOCX(file);
-    pages = [{ pageNumber: 1, text: fullText }];
-
-  } else if (isPDF(file)) {
-    sourceType = "pdf";
-    pages = await extractPagesFromPDF(file);
-    fullText = pages.map(p => p.text).join("\n");
-
-    if (fullText.trim().length < 20) {
-      fullText = await extractTextFromScannedPDF(file);
-      pages = [{ pageNumber: 1, text: fullText }];
-    }
-
-  } else if (isImage(file)) {
-    sourceType = "image";
-    fullText = await extractTextWithOCR(file);
-    pages = [{ pageNumber: 1, text: fullText }];
-
-  } else {
-    sourceType = "text";
-    fullText = await extractTextFromTextFile(file);
-    pages = [{ pageNumber: 1, text: fullText }];
-  }
-
-  const parsed = parseRecipeText(fullText);
-
-  return {
-    ...parsed,
-    pages,
-    fullText,
-    filename: file.name,
-    sourceType,
-    created: Date.now()
-  };
-}
-
-/* ---------------------------------------------------------
-   Upload Button Handler (Merged + Display File)
---------------------------------------------------------- */
-document.getElementById("uploadBtn").onclick = async () => {
-  const file = document.getElementById("fileInput").files[0];
-  if (!file) return alert("Select a file first.");
-
-  // Extract recipe text + metadata
-  const recipe = await extractRecipeFromFile(file);
-
-  // Upload original file
-  const fileName = Date.now() + "_" + file.name;
-  const storageRef = storage.ref("recipes/" + fileName);
-
-  const uploadTask = storageRef.put(file);
-
-  uploadTask.on(
-    "state_changed",
-    null,
-    (error) => console.error("Upload error:", error),
-    async () => {
-      const fileUrl = await uploadTask.snapshot.ref.getDownloadURL();
-      recipe.fileUrl = fileUrl;
-
-      // Save recipe + file URL to Firestore
-      await db.collection("recipes").add(recipe);
-
-      // Display file on the site
-      displayFile(fileUrl);
-
-      alert("Recipe uploaded!");
-      buildSearchIndex();
-    }
-  );
-};
-
-/* ---------------------------------------------------------
-   Display Uploaded File (PDF or Image)
---------------------------------------------------------- */
-function displayFile(url) {
-  const preview = document.getElementById("preview");
-
-  if (url.toLowerCase().includes(".pdf")) {
-    preview.innerHTML = `
-      <iframe src="${url}" width="100%" height="600px"></iframe>
-    `;
-    return;
-  }
-
-  if (
-    url.toLowerCase().includes(".jpg") ||
-    url.toLowerCase().includes(".jpeg") ||
-    url.toLowerCase().includes(".png") ||
-    url.toLowerCase().includes(".gif") ||
-    url.toLowerCase().includes(".webp")
-  ) {
-    preview.innerHTML = `
-      <img src="${url}" style="max-width:100%; height:auto;" />
-    `;
-    return;
-  }
-
-  preview.innerHTML = `
-    <a href="${url}" target="_blank">Open Uploaded File</a>
-  `;
-}
-
-/* ---------------------------------------------------------
-   Lunr.js Search Index
---------------------------------------------------------- */
-async function buildSearchIndex() {
-  const snapshot = await db.collection("recipes").get();
-  recipeDocs = [];
-
-  snapshot.forEach(doc => {
-    const data = doc.data();
-    recipeDocs.push({ id: doc.id, ...data });
-  });
-
-  lunrIndex = lunr(function () {
-    this.ref("id");
-    this.field("title");
-    this.field("ingredients");
-    this.field("steps");
-    this.field("tags");
-    this.field("categories");
-    this.field("fullText");
-
-    recipeDocs.forEach(r => this.add(r));
-  });
-}
-
-buildSearchIndex();
-
-/* ---------------------------------------------------------
-   Search Box Handler
---------------------------------------------------------- */
-document.getElementById("searchBox").oninput = (e) => {
-  const query = e.target.value.trim();
-  const resultsDiv = document.getElementById("results");
-  resultsDiv.innerHTML = "";
-
-  if (!query || !lunrIndex) return;
-
-  const results = lunrIndex.search(query);
-
-  results.forEach(result => {
-    const r = recipeDocs.find(x => x.id === result.ref);
-
-    resultsDiv.innerHTML += `
-      <div>
-        <h3>${r.title}</h3>
-        <p><strong>Ingredients:</strong> ${r.ingredients.join(", ")}</p>
-        <p><strong>Steps:</strong> ${r.steps.join(" ")}</p>
-        <p><strong>Tags:</strong> ${r.tags.join(", ")}</p>
-        <p><strong>Categories:</strong> ${r.categories.join(", ")}</p>
-        <a href="${r.fileUrl}" target="_blank">Download Original File</a>
-        <hr>
-      </div>
-    `;
-  });
-};
+  const categories = infer
