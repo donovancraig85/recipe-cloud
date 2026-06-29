@@ -36,55 +36,66 @@ let lunrIndex = null;
 let recipeDocs = [];
 
 /* ---------------------------------------------------------
-   WebLLM Safety Check + Fallback
+   Transformers.js Local LLM Setup
 --------------------------------------------------------- */
-if (typeof webllm === "undefined") {
-  console.warn("WebLLM did not load. Using fallback parser.");
-}
+let llmPipelinePromise = null;
 
-let llmEnginePromise = null;
-
-function getLlmEngine() {
-  if (typeof webllm === "undefined") {
-    return null; // fallback mode
+async function getLlmPipeline() {
+  if (!llmPipelinePromise) {
+    llmPipelinePromise = transformers.pipeline(
+      "text-generation",
+      "Xenova/distilgpt2"
+    );
   }
-
-  if (!llmEnginePromise) {
-    llmEnginePromise = webllm.createEngine("Llama-3-8B-Instruct-q4f32_1-MLC");
-  }
-  return llmEnginePromise;
+  return llmPipelinePromise;
 }
 
 /* ---------------------------------------------------------
-   Semantic Recipe Parsing (LLM + fallback)
+   Semantic Recipe Parsing (Transformers.js + fallback)
 --------------------------------------------------------- */
 async function semanticParseRecipe(fullText) {
-  const engine = getLlmEngine();
+  let pipeline;
 
-  // If WebLLM failed to load, fallback immediately
-  if (!engine) {
+  try {
+    pipeline = await getLlmPipeline();
+  } catch (e) {
+    console.warn("Transformers.js failed to load. Using fallback parser.");
     return parseRecipeTextFallback(fullText);
   }
 
   const prompt = `
-You are a recipe-structure parser.
-Extract ONLY valid JSON with:
+Extract a recipe from the following text.
+Return ONLY valid JSON with fields:
 title, ingredients[], steps[], metadata{}, tags[], categories[].
 Ignore dialogue and noise.
+
 Recipe text:
 ${fullText}
+
+JSON:
 `;
 
-  const result = await engine.chatCompletion({
-    messages: [{ role: "user", content: prompt }],
+  const output = await pipeline(prompt, {
+    max_new_tokens: 300,
     temperature: 0.2,
-    max_tokens: 1024
   });
 
+  const raw = output[0].generated_text;
+
+  const jsonStart = raw.indexOf("{");
+  const jsonEnd = raw.lastIndexOf("}");
+
+  if (jsonStart === -1 || jsonEnd === -1) {
+    console.warn("Model returned no JSON. Using fallback parser.");
+    return parseRecipeTextFallback(fullText);
+  }
+
+  const jsonString = raw.slice(jsonStart, jsonEnd + 1);
+
   try {
-    return JSON.parse(result.choices[0].message.content);
+    return JSON.parse(jsonString);
   } catch (e) {
-    console.warn("LLM returned invalid JSON. Using fallback parser.");
+    console.warn("Invalid JSON from model. Using fallback parser.");
     return parseRecipeTextFallback(fullText);
   }
 }
