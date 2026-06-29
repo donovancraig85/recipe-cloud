@@ -9,6 +9,7 @@ exports.RecipeParser = functions.https.onRequest(async (req, res) => {
       return res.status(400).json({ error: "Missing text" });
     }
 
+    // Use tiny model so Firebase free tier won't crash
     const generator = await pipeline("text-generation", "Xenova/tiny-random-gpt2");
 
     const prompt = `
