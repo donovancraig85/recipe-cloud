@@ -1,0 +1,7 @@
+{
+  "name": "recipes-cloud-functions",
+  "dependencies": {
+    "@xenova/transformers": "2.6.0",
+    "firebase-functions": "^4.3.0"
+  }
+}
