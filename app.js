@@ -1,27 +1,36 @@
+/* ---------------------------------------------------------
+   PDF.js Worker Fix (required for GitHub Pages)
+--------------------------------------------------------- */
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+/* ---------------------------------------------------------
+   Firebase References
+--------------------------------------------------------- */
 const storage = firebase.storage();
 const db = firebase.firestore();
 
 let lunrIndex = null;
 let recipeDocs = [];
 
-/* ------------------------------
+/* ---------------------------------------------------------
    File Type Helpers
------------------------------- */
+--------------------------------------------------------- */
 function isImage(file) { return file.type.startsWith("image/"); }
 function isPDF(file) { return file.type === "application/pdf"; }
 function isDOCX(file) { return file.name.endsWith(".docx"); }
 
-/* ------------------------------
-   OCR Extraction
------------------------------- */
-async function extractTextWithOCR(file) {
-  const result = await Tesseract.recognize(file, "eng");
+/* ---------------------------------------------------------
+   OCR Extraction (Images Only)
+--------------------------------------------------------- */
+async function extractTextWithOCR(fileOrDataUrl) {
+  const result = await Tesseract.recognize(fileOrDataUrl, "eng");
   return result.data.text;
 }
 
-/* ------------------------------
+/* ---------------------------------------------------------
    PDF.js Multi-page Extraction
------------------------------- */
+--------------------------------------------------------- */
 async function extractPagesFromPDF(file) {
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -36,18 +45,46 @@ async function extractPagesFromPDF(file) {
   return pages;
 }
 
-/* ------------------------------
+/* ---------------------------------------------------------
+   Scanned PDF OCR (Render each page to image)
+--------------------------------------------------------- */
+async function extractTextFromScannedPDF(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+  let fullText = "";
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 2 });
+
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    await page.render({ canvasContext: context, viewport }).promise;
+
+    const dataUrl = canvas.toDataURL("image/png");
+    const result = await Tesseract.recognize(dataUrl, "eng");
+    fullText += result.data.text + "\n";
+  }
+
+  return fullText.trim();
+}
+
+/* ---------------------------------------------------------
    DOCX Extraction (Mammoth)
------------------------------- */
+--------------------------------------------------------- */
 async function extractTextFromDOCX(file) {
   const arrayBuffer = await file.arrayBuffer();
   const result = await mammoth.extractRawText({ arrayBuffer });
   return result.value.trim();
 }
 
-/* ------------------------------
+/* ---------------------------------------------------------
    Text File Extraction
------------------------------- */
+--------------------------------------------------------- */
 function extractTextFromTextFile(file) {
   return new Promise(resolve => {
     const reader = new FileReader();
@@ -56,9 +93,9 @@ function extractTextFromTextFile(file) {
   });
 }
 
-/* ------------------------------
+/* ---------------------------------------------------------
    Metadata + Ingredient Extraction
------------------------------- */
+--------------------------------------------------------- */
 function parseRecipeText(fullText) {
   const lines = fullText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
 
@@ -118,9 +155,9 @@ function inferCategories(text) {
   return cats;
 }
 
-/* ------------------------------
+/* ---------------------------------------------------------
    Unified Ingestion Engine
------------------------------- */
+--------------------------------------------------------- */
 async function extractRecipeFromFile(file) {
   let pages = [];
   let fullText = "";
@@ -137,7 +174,7 @@ async function extractRecipeFromFile(file) {
     fullText = pages.map(p => p.text).join("\n");
 
     if (fullText.trim().length < 20) {
-      fullText = await extractTextWithOCR(file);
+      fullText = await extractTextFromScannedPDF(file);
       pages = [{ pageNumber: 1, text: fullText }];
     }
 
@@ -164,9 +201,9 @@ async function extractRecipeFromFile(file) {
   };
 }
 
-/* ------------------------------
-   Upload Button
------------------------------- */
+/* ---------------------------------------------------------
+   Upload Button Handler
+--------------------------------------------------------- */
 document.getElementById("uploadBtn").onclick = async () => {
   const file = document.getElementById("fileInput").files[0];
   if (!file) return alert("Select a file first.");
@@ -185,9 +222,9 @@ document.getElementById("uploadBtn").onclick = async () => {
   buildSearchIndex();
 };
 
-/* ------------------------------
+/* ---------------------------------------------------------
    Lunr.js Search Index
------------------------------- */
+--------------------------------------------------------- */
 async function buildSearchIndex() {
   const snapshot = await db.collection("recipes").get();
   recipeDocs = [];
@@ -212,9 +249,9 @@ async function buildSearchIndex() {
 
 buildSearchIndex();
 
-/* ------------------------------
-   Search Box
------------------------------- */
+/* ---------------------------------------------------------
+   Search Box Handler
+--------------------------------------------------------- */
 document.getElementById("searchBox").oninput = (e) => {
   const query = e.target.value.trim();
   const resultsDiv = document.getElementById("results");
