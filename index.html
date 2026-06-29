@@ -4,48 +4,33 @@
   <meta charset="UTF-8">
   <title>Recipes</title>
 
-  <!-- Styles -->
   <link rel="stylesheet" href="style.css">
 
-  <!-- PDF.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-
-  <!-- Tesseract OCR -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-
-  <!-- Mammoth DOCX Parser -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js"></script>
-
-  <!-- Lunr.js Search Engine -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lunr.js/2.3.9/lunr.min.js"></script>
-
-  <!-- Transformers.js Loader (fetches micro runtime at runtime) -->
-  <script src="js/transformers-loader.js"></script>
 </head>
 
 <body>
 
   <h1>Recipes</h1>
 
-  <!-- Upload Section -->
   <h2>Upload a Recipe File</h2>
   <input type="file" id="fileInput">
   <button id="uploadBtn">Upload</button>
 
-  <!-- Preview Section -->
   <h2>Preview</h2>
   <div id="preview"></div>
 
   <hr>
 
-  <!-- Search Section -->
   <h2>Search Recipes</h2>
   <input type="text" id="searchBox" placeholder="Search for ingredients, titles, tags...">
   <div id="results"></div>
 
   <hr>
 
-  <!-- Main App Logic -->
   <script type="module" src="app.js"></script>
 
 </body>
