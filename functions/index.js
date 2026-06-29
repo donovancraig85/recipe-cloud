@@ -9,10 +9,8 @@ exports.RecipeParser = functions.https.onRequest(async (req, res) => {
       return res.status(400).json({ error: "Missing text" });
     }
 
-    // Load model once per cold start
     const generator = await pipeline("text-generation", "Xenova/distilgpt2");
 
-    // Prompt for recipe extraction
     const prompt = `
 Extract the recipe from the following text and return JSON with:
 title, ingredients[], steps[], tags[], categories[].
@@ -28,7 +26,6 @@ JSON:
       temperature: 0.2,
     });
 
-    // Extract JSON from model output
     const generated = output[0].generated_text;
     const jsonStart = generated.indexOf("{");
     const jsonEnd = generated.lastIndexOf("}");
