@@ -5,8 +5,19 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 /* ---------------------------------------------------------
-   Firebase References
+   Firebase Initialization
 --------------------------------------------------------- */
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "recipes-cloud-6f09d.firebaseapp.com",
+  projectId: "recipes-cloud-6f09d",
+  storageBucket: "recipes-cloud-6f09d.firebasestorage.app",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+firebase.initializeApp(firebaseConfig);
+
 const storage = firebase.storage();
 const db = firebase.firestore();
 
@@ -202,25 +213,71 @@ async function extractRecipeFromFile(file) {
 }
 
 /* ---------------------------------------------------------
-   Upload Button Handler
+   Upload Button Handler (Merged + Display File)
 --------------------------------------------------------- */
 document.getElementById("uploadBtn").onclick = async () => {
   const file = document.getElementById("fileInput").files[0];
   if (!file) return alert("Select a file first.");
 
+  // Extract recipe text + metadata
   const recipe = await extractRecipeFromFile(file);
 
-  const storageRef = storage.ref("recipes/" + file.name);
-  await storageRef.put(file);
-  const fileUrl = await storageRef.getDownloadURL();
+  // Upload original file
+  const fileName = Date.now() + "_" + file.name;
+  const storageRef = storage.ref("recipes/" + fileName);
 
-  recipe.fileUrl = fileUrl;
+  const uploadTask = storageRef.put(file);
 
-  await db.collection("recipes").add(recipe);
+  uploadTask.on(
+    "state_changed",
+    null,
+    (error) => console.error("Upload error:", error),
+    async () => {
+      const fileUrl = await uploadTask.snapshot.ref.getDownloadURL();
+      recipe.fileUrl = fileUrl;
 
-  alert("Recipe uploaded!");
-  buildSearchIndex();
+      // Save recipe + file URL to Firestore
+      await db.collection("recipes").add(recipe);
+
+      // Display file on the site
+      displayFile(fileUrl);
+
+      alert("Recipe uploaded!");
+      buildSearchIndex();
+    }
+  );
 };
+
+/* ---------------------------------------------------------
+   Display Uploaded File (PDF or Image)
+--------------------------------------------------------- */
+function displayFile(url) {
+  const preview = document.getElementById("preview");
+
+  if (url.toLowerCase().includes(".pdf")) {
+    preview.innerHTML = `
+      <iframe src="${url}" width="100%" height="600px"></iframe>
+    `;
+    return;
+  }
+
+  if (
+    url.toLowerCase().includes(".jpg") ||
+    url.toLowerCase().includes(".jpeg") ||
+    url.toLowerCase().includes(".png") ||
+    url.toLowerCase().includes(".gif") ||
+    url.toLowerCase().includes(".webp")
+  ) {
+    preview.innerHTML = `
+      <img src="${url}" style="max-width:100%; height:auto;" />
+    `;
+    return;
+  }
+
+  preview.innerHTML = `
+    <a href="${url}" target="_blank">Open Uploaded File</a>
+  `;
+}
 
 /* ---------------------------------------------------------
    Lunr.js Search Index
