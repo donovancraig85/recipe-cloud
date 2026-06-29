@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Recipes</title>
+  <title>Recipe</title>
 
   <!-- External stylesheet -->
   <link rel="stylesheet" href="style.css">
@@ -19,13 +19,13 @@
   <!-- Lunr.js Search Engine -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/lunr.js/2.3.9/lunr.min.js"></script>
 
-  <!-- WebLLM (local free LLM) -->
+  <!-- WebLLM (local free LLM) MUST load BEFORE app.js -->
   <script src="https://unpkg.com/@mlc-ai/web-llm/dist/web-llm.min.js"></script>
 </head>
 
 <body>
 
-  <h1>Recipes</h1>
+  <h1>Recipe</h1>
 
   <!-- Upload Section -->
   <h2>Upload a Recipe File</h2>
@@ -45,7 +45,7 @@
 
   <hr>
 
-  <!-- Main App Logic -->
+  <!-- Main App Logic (must be last) -->
   <script type="module" src="app.js"></script>
 
 </body>

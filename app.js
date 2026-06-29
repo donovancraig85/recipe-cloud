@@ -16,7 +16,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 /* ---------------------------------------------------------
-   Firebase Initialization
+   Firebase Initialization (your real config)
 --------------------------------------------------------- */
 const firebaseConfig = {
   apiKey: "AIzaSyD-ZVROybS5c3O6kJhe8LVcXNZ0KbYTmvg",
@@ -36,11 +36,19 @@ let lunrIndex = null;
 let recipeDocs = [];
 
 /* ---------------------------------------------------------
-   Local LLM (WebLLM) Setup
+   WebLLM Safety Check + Fallback
 --------------------------------------------------------- */
+if (typeof webllm === "undefined") {
+  console.warn("WebLLM did not load. Using fallback parser.");
+}
+
 let llmEnginePromise = null;
 
 function getLlmEngine() {
+  if (typeof webllm === "undefined") {
+    return null; // fallback mode
+  }
+
   if (!llmEnginePromise) {
     llmEnginePromise = webllm.createEngine("Llama-3-8B-Instruct-q4f32_1-MLC");
   }
@@ -48,43 +56,35 @@ function getLlmEngine() {
 }
 
 /* ---------------------------------------------------------
-   Semantic Recipe Parsing with Local LLM
+   Semantic Recipe Parsing (LLM + fallback)
 --------------------------------------------------------- */
 async function semanticParseRecipe(fullText) {
-  const engine = await getLlmEngine();
+  const engine = getLlmEngine();
+
+  // If WebLLM failed to load, fallback immediately
+  if (!engine) {
+    return parseRecipeTextFallback(fullText);
+  }
 
   const prompt = `
 You are a recipe-structure parser.
-Extract ONLY the following fields from the text:
-
-- title (string)
-- ingredients (array of strings)
-- steps (array of strings)
-- metadata (object with prepTime, cookTime, totalTime, servings)
-- tags (array of strings)
-- categories (array of strings)
-
-Ignore ALL dialogue, page headers, commentary, and noise.
-
-Return ONLY valid JSON. Do not include any explanation.
-
+Extract ONLY valid JSON with:
+title, ingredients[], steps[], metadata{}, tags[], categories[].
+Ignore dialogue and noise.
 Recipe text:
 ${fullText}
 `;
 
   const result = await engine.chatCompletion({
-    messages: [
-      { role: "user", content: prompt }
-    ],
+    messages: [{ role: "user", content: prompt }],
     temperature: 0.2,
     max_tokens: 1024
   });
 
-  const content = result.choices[0].message.content;
-
   try {
-    return JSON.parse(content);
+    return JSON.parse(result.choices[0].message.content);
   } catch (e) {
+    console.warn("LLM returned invalid JSON. Using fallback parser.");
     return parseRecipeTextFallback(fullText);
   }
 }
