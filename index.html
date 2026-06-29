@@ -2,15 +2,30 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Recipe Cloud</title>
+  <title>Recipes</title>
 
   <!-- External stylesheet -->
   <link rel="stylesheet" href="style.css">
+
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+  <!-- Tesseract OCR -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+  <!-- Mammoth DOCX Parser -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js"></script>
+
+  <!-- Lunr.js Search Engine -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lunr.js/2.3.9/lunr.min.js"></script>
+
+  <!-- WebLLM (local free LLM) -->
+  <script src="https://unpkg.com/@mlc-ai/web-llm/dist/web-llm.min.js"></script>
 </head>
 
 <body>
 
-  <h1>Recipe Cloud</h1>
+  <h1>Recipes</h1>
 
   <!-- Upload Section -->
   <h2>Upload a Recipe File</h2>
@@ -30,29 +45,8 @@
 
   <hr>
 
-  <!-- ---------------------------------------------------------
-       Libraries (Load in Correct Order)
-  --------------------------------------------------------- -->
-
-<!-- Firebase v8 (namespaced) -->
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-
-  <!-- PDF.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-
-  <!-- Tesseract OCR -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-
-  <!-- Mammoth DOCX Parser -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js"></script>
-
-  <!-- Lunr.js Search Engine -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/lunr.js/2.3.9/lunr.min.js"></script>
-
-  <!-- Your App Logic -->
-  <script src="app.js"></script>
+  <!-- Main App Logic -->
+  <script type="module" src="app.js"></script>
 
 </body>
 </html>
