@@ -9,7 +9,7 @@ exports.RecipeParser = functions.https.onRequest(async (req, res) => {
       return res.status(400).json({ error: "Missing text" });
     }
 
-    const generator = await pipeline("text-generation", "Xenova/distilgpt2");
+    const generator = await pipeline("text-generation", "Xenova/tiny-random-gpt2");
 
     const prompt = `
 Extract the recipe from the following text and return JSON with:
