@@ -19,12 +19,13 @@ import {
    Firebase Initialization
 --------------------------------------------------------- */
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "recipes-cloud-6f09d.firebaseapp.com",
-  projectId: "recipes-cloud-6f09d",
-  storageBucket: "recipes-cloud-6f09d.firebasestorage.app",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyD-ZVROybS5c3O6kJhe8LVcXNZ0KbYTmvg",
+  authDomain: "recipes-83727.firebaseapp.com",
+  projectId: "recipes-83727",
+  storageBucket: "recipes-83727.appspot.com",
+  messagingSenderId: "97445031584",
+  appId: "1:97445031584:web:a463b119a272531f51a3c5",
+  measurementId: "G-4LERX7EWB7"
 };
 
 const app = initializeApp(firebaseConfig);
